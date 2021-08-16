@@ -28,42 +28,41 @@ class FirstScreen():
         radiobutton4.pack(anchor = tk.W, pady = 5)
         
         #calls action() when pressed
-        button = tk.Button(text="Accept", command=self.action)
-        button.pack(anchor = tk.S, pady = 5)
+        self.button = tk.Button(text="Accept", command=self.action)
+        self.button.pack(anchor = tk.S, pady = 5)
         
     def action(self):
         
         diff = self.radio_state.get()
         
         if diff == 4:
+            self.button.config(state = tk.DISABLED)
+            
             self.window_custom = tk.Tk()
             self.window_custom.title('Custom size')
             self.window_custom.config(pady = 10, padx = 10)
             
-            lbl_top = tk.Label(self.window_custom, text = 'Please select the size and number of mines in the board:')
+            lbl_top = tk.Label(self.window_custom, text = 'Please select the size and percentage of mines in the board:')
             lbl_top.grid(column = 0, columnspan = 2, row = 0, pady = 5)
 
-            lbl_x = tk.Label(self.window_custom, text = 'Width')
+            lbl_x = tk.Label(self.window_custom, text = 'Width (4-50)')
             lbl_x.grid(column = 0, row = 1, sticky = tk.W)
-            lbl_y = tk.Label(self.window_custom, text = 'Length')
+            lbl_y = tk.Label(self.window_custom, text = 'Length (4-50)')
             lbl_y.grid(column = 0, row = 2, sticky = tk.W)
-            lbl_m = tk.Label(self.window_custom, text = 'Mines')
+            lbl_m = tk.Label(self.window_custom, text = 'Mines (%)')
             lbl_m.grid(column = 0, row = 3, sticky = tk.W)
             
             vcmd = (self.window_custom.register(self.validate),
                 '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
             
-            self.etr_x = tk.Spinbox(self.window_custom, from_=4, to=50, 
+            self.etr_x = tk.Spinbox(self.window_custom, from_=4, to=30, 
                                     validate = 'key', validatecommand = vcmd)
-            # self.etr_x.insert(tk.END, string="9")
             self.etr_x.grid(column = 1, row = 1, sticky = tk.EW, pady = 3)
-            self.etr_y = tk.Spinbox(self.window_custom, from_=4, to=50, 
+            self.etr_y = tk.Spinbox(self.window_custom, from_=4, to=30, 
                                     validate = 'key', validatecommand = vcmd)
-            # self.etr_y.insert(tk.END, string="9")
             self.etr_y.grid(column = 1, row = 2, sticky = tk.EW, pady = 3)
-            self.etr_m = tk.Spinbox(self.window_custom, from_=1, to=int(self.etr_x.get())*int(self.etr_y.get()), 
+            self.etr_m = tk.Spinbox(self.window_custom, from_=1, to=99, 
                                     validate = 'key', validatecommand = vcmd)
-            # self.etr_m.insert(tk.END, string="10")
             self.etr_m.grid(column = 1, row = 3, sticky = tk.EW, pady = 3)    
             
             bt_acc = tk.Button(self.window_custom, text = 'Accept', command = self.nextWind)
@@ -90,16 +89,27 @@ class FirstScreen():
     
     def nextWind(self):
         
-        x, y, m = (int(self.etr_x.get()), int(self.etr_y.get()), int(self.etr_m.get()))
+        x, y, mp = (int(self.etr_x.get()), int(self.etr_y.get()), int(self.etr_m.get()))
         
-        self.window.destroy()
-        self.window_custom.destroy()
-        window_game = tk.Tk()
-        
-        self.game = GameScreen(window_game, x, y, m)
+        if x not in range (4,31) or y not in range (4,31) or mp not in range(1,100):
+            messagebox.showerror( "Error", "The width and length of the board should me minimum 4 and maximum 30.\nThe percentage of mines goes from 1 to 99.")
+        else:
+            self.window.destroy()
+            self.window_custom.destroy()
+            window_game = tk.Tk()
+            
+            m = int(np.floor(mp/100 *x*y))
+            if m < 1:
+                m = 1
+            if m > x*y-9:
+                m = int(x*y-9)
+            
+            self.game = GameScreen(window_game, x, y, m)
 
     
     def returnWind(self):
+        
+        self.button.config(state = tk.ACTIVE)
         
         self.window_custom.destroy()
         
@@ -109,10 +119,14 @@ class FirstScreen():
             return True
         else:
             try:
-                int(P)                
+                a = int(P)     
+                # if a not in range(4, 50):
+                #     print ("Out of range")
+                #     return False
                 return True
             except ValueError:
                 return False
+            
 
 class GameScreen():
     
