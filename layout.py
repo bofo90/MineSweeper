@@ -270,7 +270,6 @@ class GameScreen():
                     self.reset_game()
                 else:
                     self.quit_game()
-                print('you won!')
                 
     def clearAround(self, x, y):
         if self.field.clues[x,y] >= 0:
