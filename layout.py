@@ -13,6 +13,8 @@ class FirstScreen():
         self.window.title("MineSweeper")
         self.window.config(pady = 10, padx=10)
 
+        self.window.protocol("WM_DELETE_WINDOW", self.window.destroy)
+
         label_welcome = tk.Label(window, text="Welcome to Minesweeper.\nPlease select the difficulty level:")
         label_welcome.pack(anchor = tk.NW, pady = 10, padx = 10)
 
@@ -41,6 +43,8 @@ class FirstScreen():
             self.window_custom = tk.Tk()
             self.window_custom.title('Custom size')
             self.window_custom.config(pady = 10, padx = 10)
+
+            self.window_custom.protocol("WM_DELETE_WINDOW", self.returnWind)
             
             lbl_top = tk.Label(self.window_custom, text = 'Please select the size and percentage of mines in the board:')
             lbl_top.grid(column = 0, columnspan = 2, row = 0, pady = 5)
@@ -72,14 +76,14 @@ class FirstScreen():
             bt_can.grid(column = 1, row = 4)            
             
         elif diff != 0:
-            self.window.destroy()
-            window_game = tk.Tk()
+            self.window.withdraw()
+            self.window_game = tk.Toplevel()
             if diff == 1:
-                self.game = GameScreen(window_game, 9, 9, 10)
+                self.game = GameScreen(self.window, self.window_game, 9, 9, 10)
             if diff == 2:
-                self.game = GameScreen(window_game, 16, 16, 40)
+                self.game = GameScreen(self.window, self.window_game, 16, 16, 40)
             if diff == 3:
-                self.game = GameScreen(window_game, 30, 15, 99)
+                self.game = GameScreen(self.window, self.window_game, 30, 15, 99)
             
         else:
             messagebox.showerror( "Error", "Please select a difficulty.")
@@ -94,9 +98,9 @@ class FirstScreen():
         if x not in range (4,31) or y not in range (4,31) or mp not in range(1,100):
             messagebox.showerror( "Error", "The width and length of the board should me minimum 4 and maximum 30.\nThe percentage of mines goes from 1 to 99.")
         else:
-            self.window.destroy()
+            self.window.withdraw()
             self.window_custom.destroy()
-            window_game = tk.Tk()
+            self.window_game = tk.Toplevel()
             
             m = int(np.floor(mp/100 *x*y))
             if m < 1:
@@ -104,7 +108,7 @@ class FirstScreen():
             if m > x*y-9:
                 m = int(x*y-9)
             
-            self.game = GameScreen(window_game, x, y, m)
+            self.game = GameScreen(self.window, self.window_game, x, y, m)
 
     
     def returnWind(self):
@@ -130,13 +134,16 @@ class FirstScreen():
 
 class GameScreen():
     
-    def __init__(self, window, x_cells, y_cells, tot_mines):
+    def __init__(self, root, window, x_cells, y_cells, tot_mines):
         
         self.first_click = True
         
+        self.root = root
         self.window = window
         self.window.title("MineSweeper")
         self.window.config(pady = 10, padx=10)
+
+        self.window.protocol("WM_DELETE_WINDOW", self.root.destroy)
         
         self.getImages()
         
@@ -218,13 +225,12 @@ class GameScreen():
     def restart(self):
         self.reset_timer()
         self.window.destroy()
-        new_window = tk.Tk()
-        FirstScreen(new_window)
+        self.root.deiconify()
         return
     
     def quit_game(self):
         self.reset_timer()
-        self.window.destroy()
+        self.root.destroy()
         
     def left_click_wrapper(self,i,j):
         return lambda Button : self.left_click(i,j)
