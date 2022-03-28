@@ -1,6 +1,8 @@
 import field
+import scoredata
 import tkinter as tk
 from tkinter import messagebox
+from tkinter import simpledialog
 from PIL import ImageTk, Image
 import numpy as np
 from datetime import datetime
@@ -12,8 +14,10 @@ class FirstScreen():
         self.window = window
         self.window.title("MineSweeper")
         self.window.config(pady = 10, padx=10)
+        self.window.protocol("WM_DELETE_WINDOW", self.close_window)
 
-        self.window.protocol("WM_DELETE_WINDOW", self.window.destroy)
+        self.scores = scoredata.Scores_Admin()
+        self.user = None
 
         label_welcome = tk.Label(window, text="Welcome to Minesweeper.\nPlease select the difficulty level:")
         label_welcome.pack(anchor = tk.NW, pady = 10, padx = 10)
@@ -32,8 +36,30 @@ class FirstScreen():
         #calls action() when pressed
         self.button = tk.Button(text="Accept", command=self.action)
         self.button.pack(anchor = tk.S, pady = 5)
+
+    def getUser(self):
+        self.window.withdraw()
+        while True:
+            self.user = simpledialog.askstring("Input", "What is your name?",parent=self.window)
+
+            if (self.user is None) or (len(self.user) == 0):
+                messagebox.showerror( "Error", "Please specify your name.")
+            else:
+                if not self.scores.check_username(self.user):
+                    MsgBox = messagebox.askquestion ('New Username','You want to create this user?')
+                    if MsgBox == 'yes':
+                        self.scores.add_user(self.user)
+                        self.window.deiconify()
+                        return
+                else:
+                    self.window.deiconify()
+                    return
+
         
     def action(self):
+
+        if self.user == None:
+            self.getUser()
         
         diff = self.radio_state.get()
         
@@ -79,11 +105,11 @@ class FirstScreen():
             self.window.withdraw()
             self.window_game = tk.Toplevel()
             if diff == 1:
-                self.game = GameScreen(self.window, self.window_game, 9, 9, 10)
+                self.game = GameScreen(self.window, self.scores, self.window_game, 9, 9, 10)
             if diff == 2:
-                self.game = GameScreen(self.window, self.window_game, 16, 16, 40)
+                self.game = GameScreen(self.window, self.scores, self.window_game, 16, 16, 40)
             if diff == 3:
-                self.game = GameScreen(self.window, self.window_game, 30, 15, 99)
+                self.game = GameScreen(self.window, self.scores, self.window_game, 30, 15, 99)
             
         else:
             messagebox.showerror( "Error", "Please select a difficulty.")
@@ -108,7 +134,8 @@ class FirstScreen():
             if m > x*y-9:
                 m = int(x*y-9)
             
-            self.game = GameScreen(self.window, self.window_game, x, y, m)
+            self.game = GameScreen(self.window, self.scores, self.window_game, x, y, m)
+            self.button.config(state = tk.ACTIVE)
 
     
     def returnWind(self):
@@ -130,20 +157,25 @@ class FirstScreen():
                 return True
             except ValueError:
                 return False
+
+    def close_window(self):
+        self.window.destroy()
+        self.scores.close_connection()
             
 
 class GameScreen():
     
-    def __init__(self, root, window, x_cells, y_cells, tot_mines):
+    def __init__(self, root, scores, window, x_cells, y_cells, tot_mines):
         
         self.first_click = True
         
         self.root = root
+        self.scores = scores
         self.window = window
         self.window.title("MineSweeper")
         self.window.config(pady = 10, padx=10)
 
-        self.window.protocol("WM_DELETE_WINDOW", self.root.destroy)
+        self.window.protocol("WM_DELETE_WINDOW", self.close_window)
         
         self.getImages()
         
@@ -230,8 +262,8 @@ class GameScreen():
     
     def quit_game(self):
         self.reset_timer()
-        self.root.destroy()
-        
+        self.close_window()
+
     def left_click_wrapper(self,i,j):
         return lambda Button : self.left_click(i,j)
     
@@ -340,3 +372,6 @@ class GameScreen():
         else:
             return False
 
+    def close_window(self):
+        self.root.destroy()
+        self.scores.close_connection()

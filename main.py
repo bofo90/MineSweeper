@@ -8,7 +8,7 @@ window = tk.Tk()
 
 minesweeper = layout.FirstScreen(window)
 
-playerEasy = player.Player(window, minesweeper)
+# playerEasy = player.Player(window, minesweeper)
 
 window.mainloop()
 
