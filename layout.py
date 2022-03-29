@@ -102,13 +102,12 @@ class FirstScreen():
             
         elif diff != 0:
             self.window.withdraw()
-            self.window_game = tk.Toplevel()
             if diff == 1:
-                self.game = GameScreen(self.window, self.scores, self.window_game, 9, 9, 10)
+                self.game = GameScreen(self.window, self.scores, 9, 9, 10)
             if diff == 2:
-                self.game = GameScreen(self.window, self.scores, self.window_game, 16, 16, 40)
+                self.game = GameScreen(self.window, self.scores, 16, 16, 40)
             if diff == 3:
-                self.game = GameScreen(self.window, self.scores, self.window_game, 30, 15, 99)
+                self.game = GameScreen(self.window, self.scores, 30, 15, 99)
             
         else:
             messagebox.showerror( "Error", "Please select a difficulty.")
@@ -125,7 +124,6 @@ class FirstScreen():
         else:
             self.window.withdraw()
             self.window_custom.destroy()
-            self.window_game = tk.Toplevel()
             
             m = int(np.floor(mp/100 *x*y))
             if m < 1:
@@ -133,7 +131,7 @@ class FirstScreen():
             if m > x*y-9:
                 m = int(x*y-9)
             
-            self.game = GameScreen(self.window, self.scores, self.window_game, x, y, m)
+            self.game = GameScreen(self.window, self.scores, x, y, m)
             self.button.config(state = tk.ACTIVE)
 
     
@@ -164,13 +162,13 @@ class FirstScreen():
 
 class GameScreen():
     
-    def __init__(self, root, scores, window, x_cells, y_cells, tot_mines):
+    def __init__(self, root, scores, x_cells, y_cells, tot_mines):
         
         self.first_click = True
         
         self.root = root
         self.scores = scores
-        self.window = window
+        self.window = tk.Toplevel()
         self.window.title("MineSweeper")
         self.window.config(pady = 10, padx=10)
 
@@ -214,13 +212,13 @@ class GameScreen():
         frame_ex.grid(column = 1, row = 1, sticky = tk.S)
         
         restart = tk.Button(frame_ex, text = 'Reset', command=self.reset_game)
-        restart.pack(anchor = tk.W)
+        restart.pack(anchor = tk.E)
         
-        change_dif = tk.Button(frame_ex, text = 'Change difficulty', command=self.restart)
-        change_dif.pack(anchor = tk.W)
+        change_dif = tk.Button(frame_ex, text = 'Change size', command=self.restart)
+        change_dif.pack(anchor = tk.E)
         
         exit_but = tk.Button(frame_ex, text = 'Quit', command= self.quit_game)
-        exit_but.pack(anchor = tk.W)
+        exit_but.pack(anchor = tk.E)
         
     def getImages(self):
         
@@ -240,9 +238,15 @@ class GameScreen():
             image_num = Image.open(f"images/{i-1}.png")
             image_num = image_num.resize((25, 25), Image.ANTIALIAS)
             self.images["numbers"].append(ImageTk.PhotoImage(image_num))
-            
+
+    def score_decor(func):
+        def wrapper(self):
+            if hasattr(self, 'score_window'):
+                self.score_window.destroy()
+            func(self)
+        return wrapper    
         
-        
+    @score_decor 
     def reset_game(self):
         self.active_but = np.ones((self.x_cells, self.y_cells))
         self.flag_but = np.zeros((self.x_cells, self.y_cells))
@@ -253,12 +257,14 @@ class GameScreen():
         self.reset_timer()
         return
     
+    @score_decor
     def restart(self):
         self.reset_timer()
         self.window.destroy()
         self.root.deiconify()
         return
     
+    @score_decor
     def quit_game(self):
         self.reset_timer()
         self.close_window()
@@ -286,11 +292,7 @@ class GameScreen():
                 self.showMines()
                 self.label_time.after_cancel(self.time)
                 self.save_score(False)
-                answer_fail = messagebox.askyesno( "BOOM!", "You exploded! Do you want to start a new game?")
-                if answer_fail:
-                    self.reset_game()
-                else:
-                    self.quit_game()
+                self.show_scores(False)
             
             if self.field.clues[x,y] == 0:
                 self.clearAround(x,y)
@@ -306,11 +308,7 @@ class GameScreen():
                             self.buts[i,j].config(image = self.images['flag'])
                 self.label_time.after_cancel(self.time)
                 self.save_score(True)
-                answer_win = messagebox.askyesno( "Hurray!", "You won! Do you want to start a new game?")
-                if answer_win:
-                    self.reset_game()
-                else:
-                    self.quit_game()
+                self.show_scores(True)
                 
     def clearAround(self, x, y):
         if self.field.clues[x,y] >= 0:
@@ -383,7 +381,55 @@ class GameScreen():
         time = self.time_end - self.time_begin
         time_seconds = time.total_seconds()
         if win:
-            but_cleared = -np.sum(self.active_but-1)
+            but_cleared = -np.sum(self.active_but+self.flag_but-1)
         else:
             but_cleared = -(np.sum(self.active_but-1)+self.tot_mines)
         self.scores.save_game(self.x_cells, self.y_cells, self.tot_mines, time_seconds, win, but_cleared)
+
+    def show_scores(self, win):
+        user_best = self.scores.get_user_best_games(self.x_cells, self.y_cells, self.tot_mines)
+        all_best = self.scores.get_all_best_games(self.x_cells, self.y_cells, self.tot_mines)
+
+        self.score_window = tk.Toplevel()
+        self.score_window.title("Best Scores")
+        self.score_window.config(pady = 10, padx=10)
+        self.score_window.protocol("WM_DELETE_WINDOW", self.reset_game)
+        top_score = self.x_cells*self.y_cells-self.tot_mines
+
+        if win:
+            first_message = tk.Label(self.score_window, text="You won!", font='Helvetica 12 bold')
+        else:
+            first_message = tk.Label(self.score_window, text="BOOM! You lost!", font='Helvetica 12 bold')
+        first_message.grid(row=0, sticky = tk.N, padx = 1, pady = 1)
+
+        user_top = tk.Label(self.score_window, text="Your top scores:")
+        user_top.grid(row=1, sticky = tk.W, padx = 1, pady = 1)
+
+        frame_user = tk.Frame(self.score_window)
+        frame_user.grid(row = 2, sticky = tk.E, padx = 1, pady = 1)
+        tk.Label(frame_user, text="User", font='Helvetica 9 bold').grid(row=0,column=0, sticky=tk.E, pady = 1)
+        tk.Label(frame_user, text="Score", font='Helvetica 9 bold').grid(row=0,column=1, sticky=tk.E, pady = 1)
+        tk.Label(frame_user, text="Time", font='Helvetica 9 bold').grid(row=0,column=2, sticky=tk.E, pady = 1)
+        for i, score in enumerate(user_best):
+            tk.Label(frame_user, text=score[0], width = 10, anchor="e").grid(row=i+1,column=0, padx = 1)
+            tk.Label(frame_user, text=f'{np.round(score[1]/top_score*100,1)}%', width = 7, anchor="e").grid(row=i+1,column=1, padx = 1)
+            tk.Label(frame_user, text=np.floor(score[2]), width = 7, anchor="e").grid(row=i+1,column=2, padx = 1)
+
+        all_top = tk.Label(self.score_window, text="All-time top scores:")
+        all_top.grid(row=3, sticky = tk.W, padx = 1, pady = 1)
+
+        frame_all = tk.Frame(self.score_window)
+        frame_all.grid(row = 4, sticky = tk.E, padx = 1, pady = 1)
+        tk.Label(frame_all, text="User", font='Helvetica 9 bold').grid(row=0,column=0, sticky=tk.E, pady = 1)
+        tk.Label(frame_all, text="Score", font='Helvetica 9 bold').grid(row=0,column=1, sticky=tk.E, pady = 1)
+        tk.Label(frame_all, text="Time", font='Helvetica 9 bold').grid(row=0,column=2, sticky=tk.E, pady = 1)
+        for i, score in enumerate(all_best):
+            tk.Label(frame_all, text=score[0], width = 10, anchor="e").grid(row=i+1,column=0, padx = 1)
+            tk.Label(frame_all, text=f'{np.round(score[1]/top_score*100,1)}%', width = 7, anchor="e").grid(row=i+1,column=1, padx = 1)
+            tk.Label(frame_all, text=np.floor(score[2]), width = 7, anchor="e").grid(row=i+1,column=2, padx = 1)
+
+        frame_but = tk.Frame(self.score_window)
+        frame_but.grid(row = 5, sticky = tk.N, padx = 1, pady = 4)
+        tk.Button(frame_but, text = 'Restart', command=self.reset_game).grid(row=0, column=0, sticky=tk.EW, padx = 7)
+        tk.Button(frame_but, text = 'Change size', command=self.restart).grid(row=0, column=1, sticky=tk.EW, padx = 7)
+        tk.Button(frame_but, text = 'Quit', command=self.quit_game).grid(row=0, column=2, sticky=tk.EW, padx = 7)

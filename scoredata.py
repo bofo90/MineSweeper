@@ -67,7 +67,6 @@ class Scores_Admin():
             conn.commit()
 
     def create_tables(self):
-        print("Creating tables...")
         table_users = """
             CREATE TABLE users (
                 id SERIAL PRIMARY KEY,
@@ -125,3 +124,33 @@ class Scores_Admin():
         values = (x, y, mines, self.user_id, time, win, score)
         self.cursor.execute(insert_query, values)
         self.connection.commit()
+
+    def get_user_best_games(self, x, y, mines):
+        query = """
+            SELECT u.name, g.cells_dest, g.time
+            FROM games g
+            JOIN users u
+            ON u.id = g.id_user
+            WHERE id_user = %s AND x_size = %s AND y_size = %s AND mines = %s 
+            ORDER BY cells_dest DESC, time DESC 
+            LIMIT 5
+            """
+        values = (self.user_id, x, y, mines)
+        self.cursor.execute(query, values)
+        list_games = self.cursor.fetchall()
+        return list_games
+    
+    def get_all_best_games(self, x, y, mines):
+        query = """
+            SELECT u.name, g.cells_dest, g.time
+            FROM games g
+            JOIN users u
+            ON u.id = g.id_user
+            WHERE x_size = %s AND y_size = %s AND mines = %s AND bot = %s
+            ORDER BY cells_dest DESC, time DESC 
+            LIMIT 5
+            """
+        values = (x, y, mines, False)
+        self.cursor.execute(query, values)
+        list_games = self.cursor.fetchall()
+        return list_games
