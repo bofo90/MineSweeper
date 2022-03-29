@@ -1,5 +1,6 @@
 
 from configparser import ConfigParser
+from numpy import insert
 import psycopg2
 from psycopg2 import Error
 
@@ -14,6 +15,8 @@ class Scores_Admin():
 
         if  not database_exist:
             self.create_tables()
+
+        self.user_id = 0
 
     def __load_connection_info(self, ini_filename):
         parser = ConfigParser()
@@ -71,7 +74,7 @@ class Scores_Admin():
                 name VARCHAR(200) UNIQUE NOT NULL,
                 bot BOOL NOT NULL DEFAULT FALSE
             )
-        """
+            """
         self.execute_query(table_users, self.connection, self.cursor)
 
         table_games =  """
@@ -85,7 +88,7 @@ class Scores_Admin():
                 finished BOOL NOT NULL,
                 cells_dest INT NOT NULL
             )
-        """
+            """
         self.execute_query(table_games, self.connection, self.cursor)
 
     def close_connection(self):
@@ -102,12 +105,23 @@ class Scores_Admin():
         
         exist = self.cursor.fetchone()
         if exist == None:
-            return False
+            self.user_id =  0
         else:
-            return True
+            self.user_id = exist[0]
     
-    def add_user(self, name):
-        insert_query = """ INSERT INTO users (name) VALUES (%s)"""
-        username = (name,)
-        self.cursor.execute(insert_query, username)
+    def add_user(self, name, bot=False):
+        insert_query = """ INSERT INTO users (name, bot) VALUES (%s, %s)"""
+        values = (name, bot)
+        self.cursor.execute(insert_query, values)
+        self.connection.commit()
+        self.check_username(name)
+
+    def save_game(self, x, y, mines, time, win, score):
+        insert_query = """ 
+                INSERT INTO 
+                games (x_size, y_size, mines, id_user, time, finished, cells_dest) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """
+        values = (x, y, mines, self.user_id, time, win, score)
+        self.cursor.execute(insert_query, values)
         self.connection.commit()

@@ -17,7 +17,6 @@ class FirstScreen():
         self.window.protocol("WM_DELETE_WINDOW", self.close_window)
 
         self.scores = scoredata.Scores_Admin()
-        self.user = None
 
         label_welcome = tk.Label(window, text="Welcome to Minesweeper.\nPlease select the difficulty level:")
         label_welcome.pack(anchor = tk.NW, pady = 10, padx = 10)
@@ -40,25 +39,25 @@ class FirstScreen():
     def getUser(self):
         self.window.withdraw()
         while True:
-            self.user = simpledialog.askstring("Input", "What is your name?",parent=self.window)
+            name = simpledialog.askstring("Input", "What is your name?",parent=self.window)
 
-            if (self.user is None) or (len(self.user) == 0):
+            if (name is None) or (len(name) == 0):
                 messagebox.showerror( "Error", "Please specify your name.")
             else:
-                if not self.scores.check_username(self.user):
+                self.scores.check_username(name)
+                if self.scores.user_id == 0:
                     MsgBox = messagebox.askquestion ('New Username','You want to create this user?')
                     if MsgBox == 'yes':
-                        self.scores.add_user(self.user)
+                        self.scores.add_user(name)
                         self.window.deiconify()
                         return
                 else:
                     self.window.deiconify()
                     return
-
-        
+   
     def action(self):
 
-        if self.user == None:
+        if self.scores.user_id == 0:
             self.getUser()
         
         diff = self.radio_state.get()
@@ -179,7 +178,7 @@ class GameScreen():
         
         self.getImages()
         
-        self.x_cells, self.y_cells,self.tot_mines = (x_cells, y_cells, tot_mines)
+        self.x_cells, self.y_cells, self.tot_mines = (x_cells, y_cells, tot_mines)
         
         frame_but = tk.Frame(self.window, width=self.x_cells*27, height=self.y_cells*27) #their units in pixels
         frame_but.grid_propagate(False)
@@ -282,9 +281,11 @@ class GameScreen():
                 self.field = field.Field(self.x_cells, self.y_cells, self.tot_mines, x, y)
                 
             if self.field.clues[x,y] == -1:
+                self.time_end = datetime.now()
                 self.clickBut(x, y)
                 self.showMines()
                 self.label_time.after_cancel(self.time)
+                self.save_score(False)
                 answer_fail = messagebox.askyesno( "BOOM!", "You exploded! Do you want to start a new game?")
                 if answer_fail:
                     self.reset_game()
@@ -298,11 +299,13 @@ class GameScreen():
                 self.clickBut(x, y)
                 
             if self.checkWin():
+                self.time_end = datetime.now()
                 for i in np.arange(self.x_cells):
                     for j in np.arange(self.y_cells):
                         if self.field.clues[i,j] == -1:
                             self.buts[i,j].config(image = self.images['flag'])
                 self.label_time.after_cancel(self.time)
+                self.save_score(True)
                 answer_win = messagebox.askyesno( "Hurray!", "You won! Do you want to start a new game?")
                 if answer_win:
                     self.reset_game()
@@ -375,3 +378,12 @@ class GameScreen():
     def close_window(self):
         self.root.destroy()
         self.scores.close_connection()
+
+    def save_score(self, win):
+        time = self.time_end - self.time_begin
+        time_seconds = time.total_seconds()
+        if win:
+            but_cleared = -np.sum(self.active_but-1)
+        else:
+            but_cleared = -(np.sum(self.active_but-1)+self.tot_mines)
+        self.scores.save_game(self.x_cells, self.y_cells, self.tot_mines, time_seconds, win, but_cleared)
