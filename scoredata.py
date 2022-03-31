@@ -100,7 +100,7 @@ class Scores_Admin():
                {"name": name})
         except Exception as e:
             print(f"{type(e).__name__}: {e}")
-            print(f"Query: {cur.query}")
+            print(f"Query: {self.cursor.query}")
         
         exist = self.cursor.fetchone()
         if exist == None:

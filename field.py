@@ -26,6 +26,7 @@ class Field():
         self.time_begin = datetime.now()
 
         self.active_but = np.ones((self.x_size, self.y_size)).astype(int)
+        self.flag_but = np.zeros((self.x_size, self.y_size)).astype(int)
         
     def createClues(self):
         
@@ -57,22 +58,19 @@ class Field():
         return diff.total_seconds()
 
     def click(self, x, y):
-        if self.active_but[x,y] == 0:
+        if self.active_but[x,y] == 0: #not an active button
             return -2
 
-        self.active_but[x,y] = 0
-        if self.field[x,y]:
-            self.active_but -= self.active_but & self.field
+        if self.field[x,y]: #button is a mine
+            self.active_but[self.field==1] = 0
+            self.flag_but[self.field==1] = 0
             return -1
 
-        if self.clues[x,y] == 0:
+        self.active_but[x,y] = 0
+        if self.clues[x,y] == 0: #button provoques a cascade
             self.clear_around(x, y)
             return 0
-        return 0
-
-
-    def unclick(self, x, y):
-        self.active_but[x,y] = 1
+        return 1
 
     def clear_around(self, x, y):
         if self.clues[x,y] == 0:
@@ -83,3 +81,37 @@ class Field():
                         if self.active_but[x+i,y+j]:
                             self.active_but[x+i,y+j] = 0
                             self.clear_around(x+i, y+j)
+
+    def get_but(self,x,y):
+        return self.active_but[x,y] or self.flag_but[x,y]
+
+    def get_clue(self,x,y):
+        return self.clues[x,y]
+
+    def click_flag(self, x, y):
+        if self.active_but[x,y]:
+            self.active_but[x,y] = 0
+            self.flag_but[x,y] = 1
+            return 1
+        elif self.flag_but[x,y]:
+            self.active_but[x,y] = 1
+            self.flag_but[x,y] = 0
+            return 2
+        else:
+            return 0
+    
+    def count_flags(self):
+        return int(np.sum(self.flag_but))
+
+    def checkWin(self):
+        all_active = self.active_but + self.flag_but
+        if (all_active == self.field).all():
+            return True
+        else:
+            return False
+    
+    def get_cleared_buts(self):
+        all_active = self.active_but+self.flag_but
+        left_but = np.sum(all_active[self.field==0])
+        print(self.active_but.T, self.flag_but.T, self.field.T)
+        return int(self.x_size*self.y_size-self.num_mines-left_but)

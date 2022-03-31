@@ -182,7 +182,6 @@ class GameScreen():
         frame_but.grid_propagate(False)
         frame_but.grid(column = 0, row = 0, rowspan = 2)
         self.buts = np.full([self.x_cells, self.y_cells], None)
-        self.flag_but = np.zeros((self.x_cells, self.y_cells))
         for i in np.arange(self.x_cells):
             frame_but.columnconfigure(i, weight=1)
             for j in np.arange(self.y_cells):
@@ -260,38 +259,35 @@ class GameScreen():
             self.updateField()    
 
         #Check if after clicking the layer wins
-        if self.checkWin():
+        if self.field.checkWin():
             self.save_score(True)
             for i in np.arange(self.x_cells):
                 for j in np.arange(self.y_cells):
-                    if self.field.clues[i,j] == -1:
+                    if self.field.get_but(i,j):
                         self.buts[i,j].config(image = self.images['flag'])
             self.show_scores(True)
                             
     def updateField(self):
         for i in np.arange(self.x_cells):
             for j in np.arange(self.y_cells):
-                if self.field.active_but[i,j] == 0:
+                if not self.field.get_but(i,j):
                     self.clickBut(i,j)
                     
     def clickBut(self, x, y):
-        self.buts[x,y].config(image = self.images['numbers'][self.field.clues[x,y]+1])
+        self.buts[x,y].config(image = self.images['numbers'][self.field.get_clue(x,y)+1])
         
     def right_click(self, x,y):
-        if self.field.active_but[x,y]:
-            self.field.click(x, y)
-            self.flag_but[x,y] = 1
+
+        flag = self.field.click_flag(x,y)
+        if flag == 1: #Set a flag
             self.buts[x,y].config(image = self.images['flag'])
-        
-        elif self.flag_but[x,y]:
-            self.field.unclick(x, y)
-            self.flag_but[x,y] = 0
-            self.buts[x,y].config(image = self.images['plain'])     
+        if flag == 2: #Remove a flag
+            self.buts[x,y].config(image = self.images['plain'])  
         
         self.countMines()
         
     def countMines(self):
-        tot_flags = np.sum(self.flag_but).astype(int)
+        tot_flags = self.field.count_flags()
         self.label_mines.config(text=f"{tot_flags}/{self.tot_mines} mines")
         
     def timer(self):
@@ -306,14 +302,6 @@ class GameScreen():
             self.label_time.after_cancel(self.time)
         self.label_time.config(text = "00:00")
         self.first_click = True
-            
-    def checkWin(self):
-        left_but = self.field.active_but + self.flag_but
-        
-        if (left_but == self.field.field).all():
-            return True
-        else:
-            return False
 
     def close_window(self):
         self.root.destroy()
@@ -322,11 +310,7 @@ class GameScreen():
     def save_score(self, win):
         self.label_time.after_cancel(self.time)
         time_seconds = self.field.get_timediff()
-        if win:
-            but_cleared = -np.sum(self.field.active_but+self.flag_but-1)
-        else:
-            but_cleared = -(np.sum(self.field.active_but-1)+self.tot_mines)
-        
+        but_cleared = self.field.get_cleared_buts()
         self.scores.save_game(self.x_cells, self.y_cells, self.tot_mines, time_seconds, win, int(but_cleared))
 
     def show_scores(self, win):
@@ -386,7 +370,6 @@ class GameScreen():
         
     @score_decor 
     def reset_game(self):
-        self.flag_but = np.zeros((self.x_cells, self.y_cells))
         for i in np.arange(self.x_cells):
             for j in np.arange(self.y_cells):
                 self.buts[i,j].config(image = self.images['plain'])
