@@ -237,26 +237,33 @@ class GameScreen():
 
     def left_click(self, x,y):  
         status = self.field.click(x, y)
-        self.update_field()
+        if self.field.display_clues[x,y] == 0: # it created a cascade
+            self.update_field()
+        else:
+            self.update_but(x,y)
         if status == -2: # means that it is first click in this game
             self.timer()
         if status >= 0: # game is over, status 1 is won, statu 0 is lost
-            self.show_scores(status)
-                            
-    def update_field(self):
-        for i in np.arange(self.x_cells):
-            for j in np.arange(self.y_cells):
-                if self.field.display_clues[i,j] == -3:
-                    self.buts[i,j].config(image = self.images['flag'])
-                elif self.field.display_clues[i,j] == -2:
-                    self.buts[i,j].config(image = self.images['plain']) 
-                else:
-                    self.buts[i,j].config(image = self.images['numbers'][self.field.display_clues[i,j]+1])  
+            self.update_field()
+            self.show_scores(status) 
         
     def right_click(self, x,y):
         self.field.click_flag(x,y)
         self.update_field()
         self.countMines()
+    
+    def update_field(self):
+        for i in np.arange(self.x_cells):
+            for j in np.arange(self.y_cells):
+                self.update_but(i,j)
+    
+    def update_but(self,i,j):
+        if self.field.display_clues[i,j] == -3:
+            self.buts[i,j].config(image = self.images['flag'])
+        elif self.field.display_clues[i,j] == -2:
+            self.buts[i,j].config(image = self.images['plain']) 
+        else:
+            self.buts[i,j].config(image = self.images['numbers'][self.field.display_clues[i,j]+1])        
         
     def countMines(self):
         tot_flags = int(np.sum(self.field.display_clues == -3))
