@@ -103,9 +103,7 @@ class Scores_Admin():
             print(f"Query: {self.cursor.query}")
         
         exist = self.cursor.fetchone()
-        if exist == None:
-            self.user_id =  0
-        else:
+        if exist != None:
             self.user_id = exist[0]
     
     def add_user(self, name, bot=False):
@@ -132,7 +130,7 @@ class Scores_Admin():
             JOIN users u
             ON u.id = g.id_user
             WHERE id_user = %s AND x_size = %s AND y_size = %s AND mines = %s 
-            ORDER BY cells_dest DESC, time DESC 
+            ORDER BY cells_dest DESC, time 
             LIMIT 5
             """
         values = (self.user_id, x, y, mines)
@@ -147,7 +145,7 @@ class Scores_Admin():
             JOIN users u
             ON u.id = g.id_user
             WHERE x_size = %s AND y_size = %s AND mines = %s AND bot = %s
-            ORDER BY cells_dest DESC, time DESC 
+            ORDER BY cells_dest DESC, time
             LIMIT 5
             """
         values = (x, y, mines, False)
