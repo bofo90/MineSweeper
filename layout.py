@@ -241,64 +241,50 @@ class GameScreen():
 
     def left_click(self, x,y):  
     
+        #Initialize the field in the first click
         if self.first_click:
             self.first_click = False
             self.field = field.Field(self.x_cells, self.y_cells, self.tot_mines, x, y)
             self.timer()
 
-        elif self.field.active_but[x,y]:   
-                
-            if self.field.clues[x,y] == -1:
-                self.save_score(False)
-                self.clickBut(x, y)
-                self.showMines()
-                self.label_time.after_cancel(self.time)
-                self.show_scores(False)
-            
-            if self.field.clues[x,y] == 0:
-                self.clearAround(x,y)
-                
-            if self.field.clues[x,y] > 0:
-                self.clickBut(x, y)
-                
-            if self.checkWin():
-                self.save_score(True)
-                for i in np.arange(self.x_cells):
-                    for j in np.arange(self.y_cells):
-                        if self.field.clues[i,j] == -1:
-                            self.buts[i,j].config(image = self.images['flag'])
-                self.label_time.after_cancel(self.time)
-                self.show_scores(True)
-                
-    def clearAround(self, x, y):
-        if self.field.clues[x,y] >= 0:
-            self.clickBut(x, y)
-        if self.field.clues[x,y] == 0:
-            for i in [-1,0,1]:
-                for j in [-1,0,1]:
-                    if (x+i >= 0 and x+i < self.x_cells and 
-                    y+j >=0 and y+j < self.y_cells):
-                        if self.field.active_but[x+i,y+j]:
-                            self.clearAround(x+i, y+j)
+        #Check the field in the subsequent fields
+        click =self.field.click(x, y)
+        if click == -2: #click on a non-active button
+            return
+        self.clickBut(x, y)
+        if click == -1: #click on a mine
+            self.save_score(False)
+            self.updateField()
+            self.show_scores(False)
+        if click == 0: #click on a cascade button
+            self.updateField()    
+
+        #Check if after clicking the layer wins
+        if self.checkWin():
+            self.save_score(True)
+            for i in np.arange(self.x_cells):
+                for j in np.arange(self.y_cells):
+                    if self.field.clues[i,j] == -1:
+                        self.buts[i,j].config(image = self.images['flag'])
+            self.show_scores(True)
                             
-    def showMines(self):
+    def updateField(self):
         for i in np.arange(self.x_cells):
             for j in np.arange(self.y_cells):
-                if self.field.clues[i,j] == -1:
+                if self.field.active_but[i,j] == 0:
                     self.clickBut(i,j)
                     
     def clickBut(self, x, y):
-        self.field.active_but[x,y] = 0
         self.buts[x,y].config(image = self.images['numbers'][self.field.clues[x,y]+1])
         
     def right_click(self, x,y):
         if self.field.active_but[x,y]:
-            self.field.active_but[x,y] = 0
+            self.field.click(x, y)
             self.flag_but[x,y] = 1
             self.buts[x,y].config(image = self.images['flag'])
         
         elif self.flag_but[x,y]:
-            self.field.active_but[x,y] = 1
+            self.field.unclick(x, y)
             self.flag_but[x,y] = 0
             self.buts[x,y].config(image = self.images['plain'])     
         
@@ -307,7 +293,6 @@ class GameScreen():
     def countMines(self):
         tot_flags = np.sum(self.flag_but).astype(int)
         self.label_mines.config(text=f"{tot_flags}/{self.tot_mines} mines")
-        
         
     def timer(self):
         diff = int(self.field.get_timediff())
@@ -335,12 +320,14 @@ class GameScreen():
         self.scores.close_connection()
 
     def save_score(self, win):
+        self.label_time.after_cancel(self.time)
         time_seconds = self.field.get_timediff()
         if win:
             but_cleared = -np.sum(self.field.active_but+self.flag_but-1)
         else:
             but_cleared = -(np.sum(self.field.active_but-1)+self.tot_mines)
-        self.scores.save_game(self.x_cells, self.y_cells, self.tot_mines, time_seconds, win, but_cleared)
+        
+        self.scores.save_game(self.x_cells, self.y_cells, self.tot_mines, time_seconds, win, int(but_cleared))
 
     def show_scores(self, win):
         user_best = self.scores.get_user_best_games(self.x_cells, self.y_cells, self.tot_mines)

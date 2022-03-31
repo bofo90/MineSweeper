@@ -19,13 +19,13 @@ class Field():
         
         self.field = np.zeros((self.x_size*self.y_size))
         self.field[mines] = 1
-        self.field = self.field.reshape((self.x_size,self.y_size))
+        self.field = self.field.reshape((self.x_size,self.y_size)).astype(int)
         
         self.createClues()
 
         self.time_begin = datetime.now()
 
-        self.active_but = np.ones((self.x_size, self.y_size))
+        self.active_but = np.ones((self.x_size, self.y_size)).astype(int)
         
     def createClues(self):
         
@@ -55,3 +55,31 @@ class Field():
         time_now = datetime.now()
         diff = time_now-self.time_begin
         return diff.total_seconds()
+
+    def click(self, x, y):
+        if self.active_but[x,y] == 0:
+            return -2
+
+        self.active_but[x,y] = 0
+        if self.field[x,y]:
+            self.active_but -= self.active_but & self.field
+            return -1
+
+        if self.clues[x,y] == 0:
+            self.clear_around(x, y)
+            return 0
+        return 0
+
+
+    def unclick(self, x, y):
+        self.active_but[x,y] = 1
+
+    def clear_around(self, x, y):
+        if self.clues[x,y] == 0:
+            for i in [-1,0,1]:
+                for j in [-1,0,1]:
+                    if (x+i >= 0 and x+i < self.x_size and 
+                    y+j >=0 and y+j < self.y_size):
+                        if self.active_but[x+i,y+j]:
+                            self.active_but[x+i,y+j] = 0
+                            self.clear_around(x+i, y+j)
