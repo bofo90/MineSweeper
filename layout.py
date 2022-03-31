@@ -282,16 +282,14 @@ class GameScreen():
         if self.active_but[x,y]:   
             if self.first_click:
                 self.first_click = False
-                self.time_begin = datetime.now()
-                self.timer()
                 self.field = field.Field(self.x_cells, self.y_cells, self.tot_mines, x, y)
+                self.timer()
                 
             if self.field.clues[x,y] == -1:
-                self.time_end = datetime.now()
+                self.save_score(False)
                 self.clickBut(x, y)
                 self.showMines()
                 self.label_time.after_cancel(self.time)
-                self.save_score(False)
                 self.show_scores(False)
             
             if self.field.clues[x,y] == 0:
@@ -301,13 +299,12 @@ class GameScreen():
                 self.clickBut(x, y)
                 
             if self.checkWin():
-                self.time_end = datetime.now()
+                self.save_score(True)
                 for i in np.arange(self.x_cells):
                     for j in np.arange(self.y_cells):
                         if self.field.clues[i,j] == -1:
                             self.buts[i,j].config(image = self.images['flag'])
                 self.label_time.after_cancel(self.time)
-                self.save_score(True)
                 self.show_scores(True)
                 
     def clearAround(self, x, y):
@@ -332,8 +329,6 @@ class GameScreen():
         self.buts[x,y].config(image = self.images['numbers'][self.field.clues[x,y]+1])
         
     def right_click(self, x,y):
-        # x = pos[0]
-        # y = pos[1]
         if self.active_but[x,y]:
             self.active_but[x,y] = 0
             self.flag_but[x,y] = 1
@@ -352,9 +347,8 @@ class GameScreen():
         
         
     def timer(self):
-        time_now = datetime.now()
-        diff = time_now-self.time_begin
-        minutes, seconds = divmod(diff.seconds, 60)
+        diff = int(self.field.get_timediff())
+        minutes, seconds = divmod(diff, 60)
         string = f"{minutes:02d}:{seconds:02d}"
         self.label_time.config(text = string)
         self.time = self.label_time.after(1000, self.timer)
@@ -378,8 +372,7 @@ class GameScreen():
         self.scores.close_connection()
 
     def save_score(self, win):
-        time = self.time_end - self.time_begin
-        time_seconds = time.total_seconds()
+        time_seconds = self.field.get_timediff()
         if win:
             but_cleared = -np.sum(self.active_but+self.flag_but-1)
         else:

@@ -1,4 +1,5 @@
 import numpy as np
+from datetime import datetime
 
 class Field():
     
@@ -8,8 +9,7 @@ class Field():
         self.y_size = y_size
         self.num_mines = num_mines
         self.x_init = x_init
-        self.y_init = y_init
-        
+        self.y_init = y_init       
         
         self.positions = np.arange(self.x_size*self.y_size).reshape((self.x_size,self.y_size))
         self.removeInitalClick()
@@ -22,10 +22,12 @@ class Field():
         self.field = self.field.reshape((self.x_size,self.y_size))
         
         self.createClues()
+
+        self.time_begin = datetime.now()
         
     def createClues(self):
         
-        self.clues = np.zeros((self.x_size,self.y_size)).astype(int)
+        self.clues = np.zeros((self.x_size,self.y_size))
         ext_field = np.zeros((self.x_size+2,self.y_size+2))
         ext_field[1:-1,1:-1] = self.field
         
@@ -46,3 +48,8 @@ class Field():
                 if (self.x_init+i >= 0 and self.x_init+i < self.x_size and 
                 self.y_init+j >=0 and self.y_init+j < self.y_size):
                     self.positions[self.x_init+i,self.y_init+j] = -1
+
+    def get_timediff(self, ms=False):
+        time_now = datetime.now()
+        diff = time_now-self.time_begin
+        return diff.total_seconds()
