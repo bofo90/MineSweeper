@@ -24,6 +24,8 @@ class Field():
         self.createClues()
 
         self.time_begin = datetime.now()
+
+        self.active_but = np.ones((self.x_size, self.y_size))
         
     def createClues(self):
         
