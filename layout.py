@@ -1,3 +1,4 @@
+from turtle import update
 import field
 import scoredata
 import tkinter as tk
@@ -162,10 +163,7 @@ class FirstScreen():
 
 class GameScreen():
     
-    def __init__(self, root, scores, x_cells, y_cells, tot_mines):
-        
-        self.first_click = True
-        
+    def __init__(self, root, scores, x_cells, y_cells, tot_mines):        
         self.root = root
         self.scores = scores
         self.window = tk.Toplevel()
@@ -177,6 +175,7 @@ class GameScreen():
         self.getImages()
         
         self.x_cells, self.y_cells, self.tot_mines = (x_cells, y_cells, tot_mines)
+        self.field = field.Field(self.x_cells, self.y_cells, self.tot_mines)
         
         frame_but = tk.Frame(self.window, width=self.x_cells*27, height=self.y_cells*27) #their units in pixels
         frame_but.grid_propagate(False)
@@ -186,7 +185,6 @@ class GameScreen():
             frame_but.columnconfigure(i, weight=1)
             for j in np.arange(self.y_cells):
                 frame_but.rowconfigure(j, weight=1)
-                
                 self.buts[i,j] = tk.Label(frame_but, image = self.images['plain'])
                 self.buts[i,j].grid(column=i, row=j, sticky = tk.NSEW, padx = 1, pady = 1)
                 self.buts[i,j].bind("<Button-1>", self.left_click_wrapper(i,j))
@@ -221,7 +219,6 @@ class GameScreen():
         image_flag = Image.open("images/flagged.png")
         image_flag = image_flag.resize((25, 25), Image.ANTIALIAS)
         
-        
         self.images = {
             "plain": ImageTk.PhotoImage(image_plain),
             "flag": ImageTk.PhotoImage(image_flag),
@@ -239,55 +236,30 @@ class GameScreen():
         return lambda Button : self.right_click(i,j)
 
     def left_click(self, x,y):  
-    
-        #Initialize the field in the first click
-        if self.first_click:
-            self.first_click = False
-            self.field = field.Field(self.x_cells, self.y_cells, self.tot_mines, x, y)
+        status = self.field.click(x, y)
+        self.update_field()
+        if status == -2: # means that it is first click in this game
             self.timer()
-
-        #Check the field in the subsequent fields
-        click =self.field.click(x, y)
-        if click == -2: #click on a non-active button
-            return
-        self.clickBut(x, y)
-        if click == -1: #click on a mine
-            self.save_score(False)
-            self.updateField()
-            self.show_scores(False)
-        if click == 0: #click on a cascade button
-            self.updateField()    
-
-        #Check if after clicking the layer wins
-        if self.field.checkWin():
-            self.save_score(True)
-            for i in np.arange(self.x_cells):
-                for j in np.arange(self.y_cells):
-                    if self.field.get_but(i,j):
-                        self.buts[i,j].config(image = self.images['flag'])
-            self.show_scores(True)
+        if status >= 0: # game is over, status 1 is won, statu 0 is lost
+            self.show_scores(status)
                             
-    def updateField(self):
+    def update_field(self):
         for i in np.arange(self.x_cells):
             for j in np.arange(self.y_cells):
-                if not self.field.get_but(i,j):
-                    self.clickBut(i,j)
-                    
-    def clickBut(self, x, y):
-        self.buts[x,y].config(image = self.images['numbers'][self.field.get_clue(x,y)+1])
+                if self.field.display_clues[i,j] == -3:
+                    self.buts[i,j].config(image = self.images['flag'])
+                elif self.field.display_clues[i,j] == -2:
+                    self.buts[i,j].config(image = self.images['plain']) 
+                else:
+                    self.buts[i,j].config(image = self.images['numbers'][self.field.display_clues[i,j]+1])  
         
     def right_click(self, x,y):
-
-        flag = self.field.click_flag(x,y)
-        if flag == 1: #Set a flag
-            self.buts[x,y].config(image = self.images['flag'])
-        if flag == 2: #Remove a flag
-            self.buts[x,y].config(image = self.images['plain'])  
-        
+        self.field.click_flag(x,y)
+        self.update_field()
         self.countMines()
         
     def countMines(self):
-        tot_flags = self.field.count_flags()
+        tot_flags = int(np.sum(self.field.display_clues == -3))
         self.label_mines.config(text=f"{tot_flags}/{self.tot_mines} mines")
         
     def timer(self):
@@ -308,12 +280,12 @@ class GameScreen():
         self.scores.close_connection()
 
     def save_score(self, win):
-        self.label_time.after_cancel(self.time)
         time_seconds = self.field.get_timediff()
         but_cleared = self.field.get_cleared_buts()
         self.scores.save_game(self.x_cells, self.y_cells, self.tot_mines, time_seconds, win, int(but_cleared))
 
     def show_scores(self, win):
+        self.label_time.after_cancel(self.time)
         user_best = self.scores.get_user_best_games(self.x_cells, self.y_cells, self.tot_mines)
         all_best = self.scores.get_all_best_games(self.x_cells, self.y_cells, self.tot_mines)
 
@@ -370,6 +342,7 @@ class GameScreen():
         
     @score_decor 
     def reset_game(self):
+        self.field.reset()
         for i in np.arange(self.x_cells):
             for j in np.arange(self.y_cells):
                 self.buts[i,j].config(image = self.images['plain'])
