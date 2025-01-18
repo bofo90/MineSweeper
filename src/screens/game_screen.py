@@ -5,136 +5,20 @@ from tkinter import messagebox
 import numpy as np
 from PIL import Image, ImageTk
 
-import field
-
-MAX_SIZE_BOARD = 30
-
-
-class FirstScreen:
-
-    def __init__(self, window):
-
-        self.window = window
-        self.window.title("MineSweeper")
-        self.window.config(pady=10, padx=10)
-
-        label_welcome = tk.Label(window, text="Welcome to Minesweeper.\nPlease select the difficulty level:")
-        label_welcome.pack(anchor=tk.NW, pady=10, padx=10)
-
-        # Variable to hold on to which radio button value is checked.
-        self.radio_state = tk.IntVar()
-        radiobutton1 = tk.Radiobutton(text="Beginner (9x9)", value=1, variable=self.radio_state)
-        radiobutton2 = tk.Radiobutton(text="Intermediate (16x16)", value=2, variable=self.radio_state)
-        radiobutton3 = tk.Radiobutton(text="Expert (30x15)", value=3, variable=self.radio_state)
-        radiobutton4 = tk.Radiobutton(text="Custom", value=4, variable=self.radio_state)
-        radiobutton1.pack(anchor=tk.W, pady=5)
-        radiobutton2.pack(anchor=tk.W, pady=5)
-        radiobutton3.pack(anchor=tk.W, pady=5)
-        radiobutton4.pack(anchor=tk.W, pady=5)
-
-        # calls action() when pressed
-        self.button = tk.Button(text="Accept", command=self.action)
-        self.button.pack(anchor=tk.S, pady=5)
-
-    def action(self):
-
-        diff = self.radio_state.get()
-
-        if diff == 4:
-            self.button.config(state=tk.DISABLED)
-
-            self.window_custom = tk.Tk()
-            self.window_custom.title("Custom size")
-            self.window_custom.config(pady=10, padx=10)
-
-            lbl_top = tk.Label(
-                self.window_custom,
-                text="Please select the size and percentage of mines in the board:",
-            )
-            lbl_top.grid(column=0, columnspan=2, row=0, pady=5)
-
-            lbl_x = tk.Label(self.window_custom, text=f"Width (4-{MAX_SIZE_BOARD})")
-            lbl_x.grid(column=0, row=1, sticky=tk.W)
-            lbl_y = tk.Label(self.window_custom, text=f"Length (4-{MAX_SIZE_BOARD})")
-            lbl_y.grid(column=0, row=2, sticky=tk.W)
-            lbl_m = tk.Label(self.window_custom, text="Mines (%)")
-            lbl_m.grid(column=0, row=3, sticky=tk.W)
-
-            vcmd = (self.window_custom.register(self.validate), "%P")
-
-            self.etr_x = tk.Spinbox(self.window_custom, from_=4, to=30, validate="key", validatecommand=vcmd)
-            self.etr_x.grid(column=1, row=1, sticky=tk.EW, pady=3)
-            self.etr_y = tk.Spinbox(self.window_custom, from_=4, to=30, validate="key", validatecommand=vcmd)
-            self.etr_y.grid(column=1, row=2, sticky=tk.EW, pady=3)
-            self.etr_m = tk.Spinbox(self.window_custom, from_=1, to=99, validate="key", validatecommand=vcmd)
-            self.etr_m.grid(column=1, row=3, sticky=tk.EW, pady=3)
-
-            bt_acc = tk.Button(self.window_custom, text="Accept", command=self.nextWind)
-            bt_acc.grid(column=0, row=4)
-
-            bt_can = tk.Button(self.window_custom, text="Cancel", command=self.returnWind)
-            bt_can.grid(column=1, row=4)
-
-        elif diff != 0:
-            self.window.destroy()
-            window_game = tk.Tk()
-            if diff == 1:
-                self.game = GameScreen(window_game, 9, 9, 10)
-            if diff == 2:
-                self.game = GameScreen(window_game, 16, 16, 40)
-            if diff == 3:
-                self.game = GameScreen(window_game, 30, 15, 99)
-
-        else:
-            messagebox.showerror("Error", "Please select a difficulty.")
-        return
-
-    def nextWind(self):
-
-        x, y, mp = (int(self.etr_x.get()), int(self.etr_y.get()), int(self.etr_m.get()))
-
-        if x not in range(4, MAX_SIZE_BOARD + 1) or y not in range(4, MAX_SIZE_BOARD + 1) or mp not in range(1, 100):
-            messagebox.showerror(
-                "Error",
-                f"The width and length of the board should me minimum 4 and maximum {MAX_SIZE_BOARD}."
-                + "\nThe percentage of mines goes from 1 to 99.",
-            )
-        else:
-            self.window.destroy()
-            self.window_custom.destroy()
-            window_game = tk.Tk()
-
-            m = int(np.floor(mp / 100 * x * y))
-            if m < 1:
-                m = 1
-            if m == (x * y):
-                m = int(x * y - 1)
-
-            self.game = GameScreen(window_game, x, y, m)
-
-    def returnWind(self):
-
-        self.button.config(state=tk.ACTIVE)
-
-        self.window_custom.destroy()
-
-    def validate(self, P):
-
-        if P != "":
-            try:
-                int(P)
-            except ValueError:
-                return False
-        return True
+from game_logic.field import Field
 
 
 class GameScreen:
 
-    def __init__(self, window, x_cells, y_cells, tot_mines):
+    def __init__(self, main_window, x_cells, y_cells, tot_mines):
 
         self.first_click = True
+        self.lost_game = False
 
-        self.window = window
+        self.main_window = main_window
+        self.main_window.withdraw()
+
+        self.window = tk.Toplevel()
         self.window.title("MineSweeper")
         self.window.config(pady=10, padx=10)
 
@@ -170,11 +54,11 @@ class GameScreen:
         frame_ex = tk.Frame(self.window)
         frame_ex.grid(column=1, row=1, sticky=tk.S)
 
-        restart = tk.Button(frame_ex, text="Reset", command=self.reset_game)
-        restart.pack(anchor=tk.W)
+        self.restart_but = tk.Button(frame_ex, text="Reset", command=self.reset_game)
+        self.restart_but.pack(anchor=tk.W)
 
-        change_dif = tk.Button(frame_ex, text="Change difficulty", command=self.restart)
-        change_dif.pack(anchor=tk.W)
+        self.change_dif = tk.Button(frame_ex, text="Change difficulty", command=self.restart)
+        self.change_dif.pack(anchor=tk.W)
 
         exit_but = tk.Button(frame_ex, text="Quit", command=self.quit_game)
         exit_but.pack(anchor=tk.W)
@@ -182,10 +66,10 @@ class GameScreen:
     def getImages(self):
 
         image_plain = Image.open("images/facingDown.png")
-        image_plain = image_plain.resize((25, 25), Image.ANTIALIAS)
+        image_plain = image_plain.resize((25, 25), Image.LANCZOS)
 
         image_flag = Image.open("images/flagged.png")
-        image_flag = image_flag.resize((25, 25), Image.ANTIALIAS)
+        image_flag = image_flag.resize((25, 25), Image.LANCZOS)
 
         self.images = {
             "plain": ImageTk.PhotoImage(image_plain),
@@ -194,7 +78,7 @@ class GameScreen:
         }
         for i in np.arange(10):
             image_num = Image.open(f"images/{i-1}.png")
-            image_num = image_num.resize((25, 25), Image.ANTIALIAS)
+            image_num = image_num.resize((25, 25), Image.LANCZOS)
             self.images["numbers"].append(ImageTk.PhotoImage(image_num))
 
     def reset_game(self):
@@ -210,13 +94,13 @@ class GameScreen:
     def restart(self):
         self.reset_timer()
         self.window.destroy()
-        new_window = tk.Tk()
-        FirstScreen(new_window)
+        self.main_window.deiconify()
         return
 
     def quit_game(self):
         self.reset_timer()
         self.window.destroy()
+        self.main_window.destroy()
 
     def left_click_wrapper(self, i, j):
         return lambda Button: self.left_click(i, j)
@@ -231,7 +115,7 @@ class GameScreen:
                 self.first_click = False
                 self.time_begin = datetime.now()
                 self.timer()
-                self.field = field.Field(self.x_cells, self.y_cells, self.tot_mines, x, y)
+                self.field = Field(self.x_cells, self.y_cells, self.tot_mines, x, y)
 
             if self.field.clues[x, y] == -1:
                 self.clickBut(x, y)
@@ -272,6 +156,9 @@ class GameScreen:
                             self.clearAround(x + i, y + j)
 
     def showMines(self):
+
+        self.lost_game = True
+
         for i in np.arange(self.x_cells):
             for j in np.arange(self.y_cells):
                 if self.field.clues[i, j] == -1:
