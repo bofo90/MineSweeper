@@ -1,6 +1,5 @@
 import tkinter as tk
 from datetime import datetime
-from tkinter import messagebox
 
 import numpy as np
 from PIL import Image, ImageTk
@@ -10,16 +9,18 @@ from game_logic.field import Field
 
 class GameScreen:
 
-    def __init__(self, main_window, x_cells, y_cells, tot_mines):
+    def __init__(self, main_window, x_cells, y_cells, tot_mines, player=None):
 
         self.first_click = True
-        self.lost_game = False
+        self.game_finished = False
+        self.player = player
 
         self.main_window = main_window
         self.main_window.withdraw()
 
         self.window = tk.Toplevel()
         self.window.title("MineSweeper")
+        self.window.protocol("WM_DELETE_WINDOW", self.close_all_windows)
         self.window.config(pady=10, padx=10)
 
         self.getImages()
@@ -54,14 +55,14 @@ class GameScreen:
         frame_ex = tk.Frame(self.window)
         frame_ex.grid(column=1, row=1, sticky=tk.S)
 
-        self.restart_but = tk.Button(frame_ex, text="Reset", command=self.reset_game)
+        self.restart_but = tk.Button(frame_ex, text="Restart", command=self.restart_game)
         self.restart_but.pack(anchor=tk.W)
 
-        self.change_dif = tk.Button(frame_ex, text="Change difficulty", command=self.restart)
-        self.change_dif.pack(anchor=tk.W)
-
-        exit_but = tk.Button(frame_ex, text="Quit", command=self.quit_game)
+        exit_but = tk.Button(frame_ex, text="Go back", command=self.return_to_main_window)
         exit_but.pack(anchor=tk.W)
+
+        if self.player is not None:
+            self.player.play_in_window(self)
 
     def getImages(self):
 
@@ -81,7 +82,13 @@ class GameScreen:
             image_num = image_num.resize((25, 25), Image.LANCZOS)
             self.images["numbers"].append(ImageTk.PhotoImage(image_num))
 
-    def reset_game(self):
+    def restart_game(self):
+
+        if self.player is not None:
+            self.player.stop_play_in_window()
+
+        self.restart_but.config(text="Restart")
+
         self.active_but = np.ones((self.x_cells, self.y_cells))
         self.flag_but = np.zeros((self.x_cells, self.y_cells))
         self.countMines()
@@ -89,15 +96,24 @@ class GameScreen:
             for j in np.arange(self.y_cells):
                 self.buts[i, j].config(image=self.images["plain"])
         self.reset_timer()
-        return
 
-    def restart(self):
+        self.game_finished = False
+        if self.player is not None:
+            self.player.play_in_window(self)
+
+    def return_to_main_window(self):
+
+        if self.player is not None:
+            self.player.stop_play_in_window()
         self.reset_timer()
         self.window.destroy()
         self.main_window.deiconify()
-        return
 
-    def quit_game(self):
+    def close_all_windows(self):
+
+        if self.player is not None:
+            self.player.stop_play_in_window()
+
         self.reset_timer()
         self.window.destroy()
         self.main_window.destroy()
@@ -118,14 +134,14 @@ class GameScreen:
                 self.field = Field(self.x_cells, self.y_cells, self.tot_mines, x, y)
 
             if self.field.clues[x, y] == -1:
+                self.game_finished = True
+                if self.player is not None:
+                    self.player.stop_play_in_window()
                 self.clickBut(x, y)
                 self.showMines()
+                self.disableBoard()
                 self.label_time.after_cancel(self.time)
-                answer_fail = messagebox.askyesno("BOOM!", "You exploded! Do you want to start a new game?")
-                if answer_fail:
-                    self.reset_game()
-                else:
-                    self.quit_game()
+                self.restart_but.config(text="You lost!")
 
             if self.field.clues[x, y] == 0:
                 self.clearAround(x, y)
@@ -134,16 +150,18 @@ class GameScreen:
                 self.clickBut(x, y)
 
             if self.checkWin():
+                self.game_finished = True
+                if self.player is not None:
+                    self.player.stop_play_in_window()
+
+                self.restart_but.config(text="YOU WON!")
+
+                self.disableBoard()
                 for i in np.arange(self.x_cells):
                     for j in np.arange(self.y_cells):
                         if self.field.clues[i, j] == -1:
                             self.buts[i, j].config(image=self.images["flag"])
                 self.label_time.after_cancel(self.time)
-                answer_win = messagebox.askyesno("Hurray!", "You won! Do you want to start a new game?")
-                if answer_win:
-                    self.reset_game()
-                else:
-                    self.quit_game()
 
     def clearAround(self, x, y):
         if self.field.clues[x, y] >= 0:
@@ -156,19 +174,22 @@ class GameScreen:
                             self.clearAround(x + i, y + j)
 
     def showMines(self):
-
-        self.lost_game = True
-
         for i in np.arange(self.x_cells):
             for j in np.arange(self.y_cells):
                 if self.field.clues[i, j] == -1:
                     self.clickBut(i, j)
+
+    def disableBoard(self):
+        self.active_but = np.zeros((self.x_cells, self.y_cells))
 
     def clickBut(self, x, y):
         self.active_but[x, y] = 0
         self.buts[x, y].config(image=self.images["numbers"][self.field.clues[x, y] + 1])
 
     def right_click(self, x, y):
+
+        if self.game_finished:
+            return
 
         if self.active_but[x, y]:
             self.active_but[x, y] = 0
@@ -179,7 +200,6 @@ class GameScreen:
             self.active_but[x, y] = 1
             self.flag_but[x, y] = 0
             self.buts[x, y].config(image=self.images["plain"])
-
         self.countMines()
 
     def countMines(self):

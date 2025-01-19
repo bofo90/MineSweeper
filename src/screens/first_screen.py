@@ -43,10 +43,16 @@ class FirstScreen:
         self.button = tk.Button(text="Accept", command=self.action)
         self.button.pack(anchor=tk.S, pady=5)
 
+        self.player = None
+
     def action(self):
 
-        diff = self.radio_state.get()
+        if self.checkbutton_value.get():
+            self.player = RandomPlayer(self.window)
+        else:
+            self.player = None
 
+        diff = self.radio_state.get()
         if diff == 4:
             self.button.config(state=tk.DISABLED)
 
@@ -84,18 +90,14 @@ class FirstScreen:
 
         elif diff != 0:
             if diff == 1:
-                self.game = GameScreen(self.window, 9, 9, 10)
+                self.game = GameScreen(self.window, 9, 9, 10, self.player)
             if diff == 2:
-                self.game = GameScreen(self.window, 16, 16, 40)
+                self.game = GameScreen(self.window, 16, 16, 40, self.player)
             if diff == 3:
-                self.game = GameScreen(self.window, 30, 15, 99)
-
-            if self.checkbutton_value.get():
-                RandomPlayer(self.game, self.window)
+                self.game = GameScreen(self.window, 30, 15, 99, self.player)
 
         else:
             messagebox.showerror("Error", "Please select a difficulty.")
-        return
 
     def nextWind(self):
 
@@ -115,7 +117,7 @@ class FirstScreen:
                 m = int(x * y - 1)
 
             self.window_custom.destroy()
-            self.game = GameScreen(self.window, x, y, m)
+            self.game = GameScreen(self.window, x, y, m, self.player)
 
     def returnWind(self):
 
