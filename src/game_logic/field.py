@@ -1,7 +1,17 @@
+from datetime import datetime
+from enum import Enum
+
 import numpy as np
 
 
-class Field:
+class GameStatus(Enum):
+    WAITING = "waiting"
+    PLAYING = "playing"
+    LOST = "lost"
+    WON = "won"
+
+
+class FieldCreator:
 
     def __init__(self, x_size, y_size, num_mines, x_init, y_init):
 
@@ -57,3 +67,143 @@ class Field:
                     and self.y_init + j < self.y_size
                 ):
                     self.positions[self.x_init + i, self.y_init + j] = -1
+
+    def get_all_clues(self):
+        return self.clues
+
+    def get_all_mines(self):
+        return self.field
+
+
+class FieldInteraction:
+
+    def __init__(self, x_size, y_size, num_mines):
+
+        self.x_size = x_size
+        self.y_size = y_size
+        self.num_mines = num_mines
+
+        self.hidden = np.ones((self.x_size, self.y_size))
+        self.flag = np.zeros((self.x_size, self.y_size))
+
+        self.clues = None
+        self.mine_field = np.zeros((self.x_size, self.y_size))
+        self.game_status = GameStatus.WAITING
+        self.left_click_turns = []
+        self.right_click_turns = []
+
+    def discover_cell(self, x, y):
+
+        if self.game_status in [GameStatus.WON, GameStatus.LOST]:
+            return
+
+        # If button is not active do not do anything
+        if self.hidden[x, y] == 0 or self.flag[x, y] == 1:
+            return
+
+        if self.clues is None:
+            field_creator = FieldCreator(self.x_size, self.y_size, self.num_mines, x, y)
+
+            self.clues = field_creator.get_all_clues()
+            self.mine_field = field_creator.get_all_mines()
+
+            self.game_status = GameStatus.PLAYING
+            self.start_time = datetime.now()
+
+        match self.clues[x, y]:
+            case -1:
+                self.time_played = self.get_time_played()
+                mines, flags = self.show_mines_lost()
+                self.left_click_turns.append(mines)
+                self.right_click_turns.append(flags)
+                self.game_status = GameStatus.LOST
+            case 0:
+                empties = self.clear_around(x, y, [])
+                self.left_click_turns.append(empties)
+                self.check_win()
+            case _:
+                self.hidden[x, y] = 0
+                self.left_click_turns.append([(x, y, self.clues[x, y])])
+                self.check_win()
+
+    def update_flag(self, x, y):
+
+        if self.game_status is not GameStatus.PLAYING:
+            return
+
+        if self.hidden[x, y] == 0:
+            return
+
+        if self.flag[x, y] == 0:
+            self.flag[x, y] = 1
+            self.right_click_turns.append([(x, y, 1)])
+        else:
+            self.flag[x, y] = 0
+            self.right_click_turns.append([(x, y, 0)])
+
+    def show_mines_lost(self):
+        mines_to_show = []
+        flags_to_remove = []
+        for i in range(self.x_size):
+            for j in range(self.y_size):
+                if self.clues[i, j] == -1 and self.flag[i, j] == 0:
+                    mines_to_show.append((i, j, -1))
+                    self.hidden[i, j] = 0
+                if self.clues[i, j] >= 0 and self.flag[i, j] == 1:
+                    flags_to_remove.append((i, j, 0))
+                    self.flag[i, j] = 0
+
+        return mines_to_show, flags_to_remove
+
+    def check_within_board(self, x, y) -> bool:
+        return (x >= 0) and (x < self.x_size) and (y >= 0) and (y < self.y_size)
+
+    def clear_around(self, x, y, turns):
+
+        self.hidden[x, y] = 0
+        turns.append((x, y, self.clues[x, y]))
+
+        if self.clues[x, y] == 0:
+            for i in [-1, 0, 1]:
+                for j in [-1, 0, 1]:
+                    if self.check_within_board(x + i, y + j) and self.hidden[x + i, y + j] == 1:
+                        turns = self.clear_around(x + i, y + j, turns)
+
+        return turns
+
+    def check_win(self):
+
+        if (self.hidden == self.mine_field).all():
+            self.game_status = GameStatus.WON
+            self.time_played = self.get_time_played()
+
+    def get_last_left_click_turn(self):
+        if len(self.left_click_turns) == 0:
+            return []
+        else:
+            return self.left_click_turns[-1]
+
+    def get_last_right_click_turn(self):
+        if len(self.right_click_turns) == 0:
+            return []
+        else:
+            return self.right_click_turns[-1]
+
+    def get_time_played(self):
+        diff = datetime.now() - self.start_time
+        return diff.seconds
+
+    def get_time(self) -> str:
+
+        if self.game_status is GameStatus.PLAYING:
+            diff_sec = self.get_time_played()
+            minutes, seconds = divmod(diff_sec, 60)
+            return f"{minutes:02d}:{seconds:02d}"
+        elif self.game_status is GameStatus.WAITING:
+            return "00:00"
+        else:
+            minutes, seconds = divmod(self.time_played, 60)
+            return f"{minutes:02d}:{seconds:02d}"
+
+    def get_total_flags(self) -> int:
+        return np.sum(self.flag).astype(int)

@@ -101,6 +101,8 @@ class FirstScreen:
 
     def nextWind(self):
 
+        self.button.config(state=tk.ACTIVE)
+
         x, y, mp = (int(self.etr_x.get()), int(self.etr_y.get()), int(self.etr_m.get()))
 
         if x not in range(4, MAX_SIZE_BOARD + 1) or y not in range(4, MAX_SIZE_BOARD + 1) or mp not in range(1, 100):

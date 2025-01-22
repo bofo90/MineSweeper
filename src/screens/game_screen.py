@@ -1,10 +1,9 @@
 import tkinter as tk
-from datetime import datetime
 
 import numpy as np
 from PIL import Image, ImageTk
 
-from game_logic.field import Field
+from game_logic.field import FieldInteraction, GameStatus
 
 
 class GameScreen:
@@ -14,6 +13,7 @@ class GameScreen:
         self.first_click = True
         self.game_finished = False
         self.player = player
+        self.update_time = None
 
         self.main_window = main_window
         self.main_window.withdraw()
@@ -26,16 +26,17 @@ class GameScreen:
         self.getImages()
 
         self.x_cells, self.y_cells, self.tot_mines = (x_cells, y_cells, tot_mines)
+        self.field_interactor = FieldInteraction(self.x_cells, self.y_cells, self.tot_mines)
 
         frame_but = tk.Frame(self.window, width=self.x_cells * 27, height=self.y_cells * 27)  # their units in pixels
         frame_but.grid_propagate(False)
         frame_but.grid(column=0, row=0, rowspan=2)
         self.buts = np.full([self.x_cells, self.y_cells], None)
-        self.active_but = np.ones((self.x_cells, self.y_cells))
-        self.flag_but = np.zeros((self.x_cells, self.y_cells))
-        for i in np.arange(self.x_cells):
+        # self.active_but = np.ones((self.x_cells, self.y_cells))
+        # self.flag_but = np.zeros((self.x_cells, self.y_cells))
+        for i in range(self.x_cells):
             frame_but.columnconfigure(i, weight=1)
-            for j in np.arange(self.y_cells):
+            for j in range(self.y_cells):
                 frame_but.rowconfigure(j, weight=1)
 
                 self.buts[i, j] = tk.Label(frame_but, image=self.images["plain"])
@@ -87,17 +88,12 @@ class GameScreen:
         if self.player is not None:
             self.player.stop_play_in_window()
 
+        self.field_interactor = FieldInteraction(self.x_cells, self.y_cells, self.tot_mines)
         self.restart_but.config(text="Restart")
-
-        self.active_but = np.ones((self.x_cells, self.y_cells))
-        self.flag_but = np.zeros((self.x_cells, self.y_cells))
-        self.countMines()
-        for i in np.arange(self.x_cells):
-            for j in np.arange(self.y_cells):
-                self.buts[i, j].config(image=self.images["plain"])
+        self.update_count_mines()
+        self.reset_board()
         self.reset_timer()
 
-        self.game_finished = False
         if self.player is not None:
             self.player.play_in_window(self)
 
@@ -126,104 +122,63 @@ class GameScreen:
 
     def left_click(self, x, y):
 
-        if self.active_but[x, y]:
-            if self.first_click:
-                self.first_click = False
-                self.time_begin = datetime.now()
-                self.timer()
-                self.field = Field(self.x_cells, self.y_cells, self.tot_mines, x, y)
+        if self.update_time is None:
+            self.set_timer()
 
-            if self.field.clues[x, y] == -1:
-                self.game_finished = True
-                if self.player is not None:
-                    self.player.stop_play_in_window()
-                self.clickBut(x, y)
-                self.showMines()
-                self.disableBoard()
-                self.label_time.after_cancel(self.time)
-                self.restart_but.config(text="You lost!")
+        self.field_interactor.discover_cell(x, y)
 
-            if self.field.clues[x, y] == 0:
-                self.clearAround(x, y)
+        if self.field_interactor.game_status in [GameStatus.LOST, GameStatus.WON]:
 
-            if self.field.clues[x, y] > 0:
-                self.clickBut(x, y)
+            if self.player is not None:
+                self.player.stop_play_in_window()
 
-            if self.checkWin():
-                self.game_finished = True
-                if self.player is not None:
-                    self.player.stop_play_in_window()
+            self.main_window.after_cancel(self.update_time)
 
+            if self.field_interactor.game_status is GameStatus.WON:
                 self.restart_but.config(text="YOU WON!")
+            else:
+                self.restart_but.config(text="You lost!")
+                self.update_right_click_board()
 
-                self.disableBoard()
-                for i in np.arange(self.x_cells):
-                    for j in np.arange(self.y_cells):
-                        if self.field.clues[i, j] == -1:
-                            self.buts[i, j].config(image=self.images["flag"])
-                self.label_time.after_cancel(self.time)
-
-    def clearAround(self, x, y):
-        if self.field.clues[x, y] >= 0:
-            self.clickBut(x, y)
-        if self.field.clues[x, y] == 0:
-            for i in [-1, 0, 1]:
-                for j in [-1, 0, 1]:
-                    if x + i >= 0 and x + i < self.x_cells and y + j >= 0 and y + j < self.y_cells:
-                        if self.active_but[x + i, y + j]:
-                            self.clearAround(x + i, y + j)
-
-    def showMines(self):
-        for i in np.arange(self.x_cells):
-            for j in np.arange(self.y_cells):
-                if self.field.clues[i, j] == -1:
-                    self.clickBut(i, j)
-
-    def disableBoard(self):
-        self.active_but = np.zeros((self.x_cells, self.y_cells))
-
-    def clickBut(self, x, y):
-        self.active_but[x, y] = 0
-        self.buts[x, y].config(image=self.images["numbers"][self.field.clues[x, y] + 1])
+        self.update_left_click_board()
 
     def right_click(self, x, y):
 
-        if self.game_finished:
-            return
+        self.field_interactor.update_flag(x, y)
 
-        if self.active_but[x, y]:
-            self.active_but[x, y] = 0
-            self.flag_but[x, y] = 1
-            self.buts[x, y].config(image=self.images["flag"])
+        self.update_right_click_board()
+        self.update_count_mines()
 
-        elif self.flag_but[x, y]:
-            self.active_but[x, y] = 1
-            self.flag_but[x, y] = 0
-            self.buts[x, y].config(image=self.images["plain"])
-        self.countMines()
+    def update_left_click_board(self):
+        last_turn = self.field_interactor.get_last_left_click_turn()
+        for x, y, clue in last_turn:
+            self.buts[x, y].config(image=self.images["numbers"][clue + 1])
 
-    def countMines(self):
-        tot_flags = np.sum(self.flag_but).astype(int)
+    def update_right_click_board(self):
+        last_flagged = self.field_interactor.get_last_right_click_turn()
+
+        for x, y, flagged in last_flagged:
+            if flagged:
+                self.buts[x, y].config(image=self.images["flag"])
+            else:
+                self.buts[x, y].config(image=self.images["plain"])
+
+    def update_count_mines(self):
+        tot_flags = self.field_interactor.get_total_flags()
         self.label_mines.config(text=f"{tot_flags}/{self.tot_mines} mines")
 
-    def timer(self):
-        time_now = datetime.now()
-        diff = time_now - self.time_begin
-        minutes, seconds = divmod(diff.seconds, 60)
-        string = f"{minutes:02d}:{seconds:02d}"
-        self.label_time.config(text=string)
-        self.time = self.label_time.after(1000, self.timer)
+    def reset_board(self):
+        for i in np.arange(self.x_cells):
+            for j in np.arange(self.y_cells):
+                self.buts[i, j].config(image=self.images["plain"])
+
+    def set_timer(self):
+        clock_time = self.field_interactor.get_time()
+        self.label_time.config(text=clock_time)
+        self.update_time = self.main_window.after(1000, self.set_timer)
 
     def reset_timer(self):
-        if hasattr(self, "time"):
-            self.label_time.after_cancel(self.time)
+        if self.update_time is not None:
+            self.main_window.after_cancel(self.update_time)
         self.label_time.config(text="00:00")
-        self.first_click = True
-
-    def checkWin(self):
-        left_but = self.active_but + self.flag_but
-
-        if (left_but == self.field.field).all():
-            return True
-        else:
-            return False
+        self.update_time = None
