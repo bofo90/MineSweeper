@@ -41,8 +41,10 @@ class GameScreen:
 
                 self.buts[i, j] = tk.Label(frame_but, image=self.images["plain"])
                 self.buts[i, j].grid(column=i, row=j, sticky=tk.NSEW, padx=1, pady=1)
-                self.buts[i, j].bind("<Button-1>", self.left_click_wrapper(i, j))
-                self.buts[i, j].bind("<Button-3>", self.right_click_wrapper(i, j))
+
+                if self.player is None:
+                    self.buts[i, j].bind("<Button-1>", self.left_click_wrapper(i, j))
+                    self.buts[i, j].bind("<Button-3>", self.right_click_wrapper(i, j))
 
         frame_info = tk.Frame(self.window)
         frame_info.grid(column=1, row=0, sticky=tk.N)

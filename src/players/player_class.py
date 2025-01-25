@@ -1,21 +1,24 @@
+from abc import ABC, abstractmethod
 from tkinter import Tk
 
 import numpy as np
 
+from game_logic.field import GameStatus
 from screens.game_screen import GameScreen
 
 TIME_CLICK = 700
 
 
-class Player:
+class Player(ABC):
     def __init__(self, root: Tk):
         self.root = root
         self.made_move = None
+        self.game_finished = False
 
     def play_in_window(self, game_window: GameScreen):
-        print("start playing")
 
         self.game_window = game_window
+        self.field_interactor = game_window.field_interactor
         self.size_x = game_window.x_cells
         self.size_y = game_window.y_cells
 
@@ -34,7 +37,7 @@ class Player:
         self.made_move = self.root.after(TIME_CLICK, self.next_click)
 
     def next_click(self):
-        if self.game_window.game_finished:
+        if self.field_interactor.game_status is not GameStatus.PLAYING:
             return
 
         x, y = self.choose_next_move()
@@ -42,6 +45,6 @@ class Player:
 
         self.made_move = self.root.after(TIME_CLICK, self.next_click)
 
-    @staticmethod
+    @abstractmethod
     def choose_next_move(self):
-        raise NotImplementedError("A way to play needs to be implemented.")
+        pass
