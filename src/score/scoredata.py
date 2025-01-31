@@ -6,7 +6,7 @@ import psycopg2
 class Scores_Admin:
 
     def __init__(self):
-        __info = self.__load_connection_info("db.ini")
+        __info = self._parse_db_info("db.ini")
         database_exist = self.create_db(__info)
 
         self.connection = psycopg2.connect(**__info)
@@ -15,9 +15,9 @@ class Scores_Admin:
         if not database_exist:
             self.create_tables()
 
-        self.user_id = 0
+        self.user_id = None
 
-    def __load_connection_info(self, ini_filename):
+    def _parse_db_info(self, ini_filename):
         parser = ConfigParser()
         parser.read(ini_filename)
         # Create a dictionary of the variables stored under the "postgresql" section of the .ini
@@ -101,6 +101,16 @@ class Scores_Admin:
 
         exist = self.cursor.fetchone()
         if exist is not None:
+            self.user_id = exist[0]
+
+    def set_user(self, user_name):
+
+        self.cursor.execute("SELECT * FROM users WHERE name = %(name)s", {"name": user_name})
+        exist = self.cursor.fetchone()
+
+        if exist is None:
+            self.user_id = None
+        else:
             self.user_id = exist[0]
 
     def add_user(self, name, bot=False):

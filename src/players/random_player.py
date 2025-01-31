@@ -5,6 +5,8 @@ from .player_class import Player
 
 class RandomPlayer(Player):
 
+    NAME = "RandomSelector"
+
     def choose_next_move(self):
 
         x_pos_active, y_pos_acttive = np.where(self.field_interactor.hidden == 1)
