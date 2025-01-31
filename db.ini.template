@@ -1,0 +1,5 @@
+[postgresql]
+user = xxxx
+password = xxxx
+host = localhost
+database = mine_scores

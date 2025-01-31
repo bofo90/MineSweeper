@@ -26,7 +26,7 @@ class Scores_Admin:
 
     def create_db(self, conn_info):
         # Connect just to PostgreSQL with the user loaded from the .ini file
-        psql_connection_string = f"user={conn_info['user']} password={conn_info['password']}"
+        psql_connection_string = f"user={conn_info['user']} password={conn_info['password']} host={conn_info['host']}"
         conn = psycopg2.connect(psql_connection_string)
         cur = conn.cursor()
 
