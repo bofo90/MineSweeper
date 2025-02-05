@@ -140,8 +140,8 @@ class GameScreen:
                 self.restart_but.config(text="YOU WON!")
             else:
                 self.restart_but.config(text="You lost!")
-                self.update_right_click_board()
 
+            self.update_right_click_board()
         self.update_left_click_board()
 
     def right_click(self, x, y):

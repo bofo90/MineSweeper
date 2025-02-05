@@ -155,6 +155,16 @@ class FieldInteraction:
 
         return mines_to_show, flags_to_remove
 
+    def show_mines_win(self):
+        flags_to_add = []
+        for i in range(self.x_size):
+            for j in range(self.y_size):
+                if self.clues[i, j] == -1 and self.flag[i, j] == 0:
+                    flags_to_add.append((i, j, -1))
+                    self.flag[i, j] = 1
+
+        return flags_to_add
+
     def check_within_board(self, x, y) -> bool:
         return (x >= 0) and (x < self.x_size) and (y >= 0) and (y < self.y_size)
 
@@ -172,10 +182,11 @@ class FieldInteraction:
         return turns
 
     def check_win(self):
-
         if (self.hidden == self.mine_field).all():
             self.game_status = GameStatus.WON
             self.time_played = self.get_time_played()
+            flag_mines = self.show_mines_win()
+            self.right_click_turns.append(flag_mines)
 
     def get_last_left_click_turn(self):
         if len(self.left_click_turns) == 0:
